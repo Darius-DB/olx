@@ -29,10 +29,30 @@ public class AnalyzeCommand implements Runnable {
 
     private static final Logger LOG = Logger.getLogger(AnalyzeCommand.class.getName());
 
+    /**
+     * All Romanian cities (and major suburbs) with an estimated population above 10,000,
+     * expressed as OLX.ro URL slugs.  Used as the built-in default when {@code --cities} is
+     * not supplied on the command line.
+     */
+    private static final String DEFAULT_CITIES =
+            "bucuresti,cluj-napoca,timisoara,iasi,constanta,craiova,brasov,galati,"
+            + "ploiesti,oradea,braila,arad,pitesti,sibiu,bacau,targu-mures,baia-mare,"
+            + "buzau,botosani,satu-mare,ramnicu-valcea,suceava,drobeta-turnu-severin,"
+            + "piatra-neamt,targu-jiu,tulcea,focsani,resita,bistrita,alba-iulia,"
+            + "hunedoara,slatina,vaslui,sfantu-gheorghe,zalau,deva,slobozia,roman,"
+            + "turda,alexandria,giurgiu,lugoj,medias,onesti,miercurea-ciuc,mangalia,"
+            + "navodari,odorheiu-secuiesc,campina,pascani,reghin,ramnicu-sarat,"
+            + "campia-turzii,turnu-magurele,mioveni,dorohoi,fetesti,caracal,campulung,"
+            + "falticeni,oltenita,radauti,adjud,moreni,brad,zarnesti,vulcan,codlea,"
+            + "campulung-moldovenesc,cernavoda,urziceni,filiasi,comanesti,calafat,"
+            + "motru,rosiorii-de-vede,buftea,carei,sacele,dej,gheorgheni,toplita,"
+            + "sinaia,voluntari,popesti-leordeni,bals,rasnov";
+
     @Option(
             names = "--cities",
-            description = "Comma-separated OLX.ro city slugs (default: ${DEFAULT-VALUE})",
-            defaultValue = "bucuresti,cluj-napoca,timisoara"
+            description = "Comma-separated OLX.ro city slugs. Defaults to all Romanian cities"
+                    + " with population > 10,000.",
+            defaultValue = DEFAULT_CITIES
     )
     private String citiesOption;
 
