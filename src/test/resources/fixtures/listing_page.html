@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head><meta charset="UTF-8"><title>OLX.ro fixture</title></head>
+<body>
+<div id="listing-grid">
+
+  <!-- Listing 1: valid EUR, area in title -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/apartament-2-camere-bucuresti-CID123.html">
+      <h6>Apartament 2 camere, 75 mp, Sector 1</h6>
+    </a>
+    <p data-testid="ad-price">75 000 EUR</p>
+  </div>
+
+  <!-- Listing 2: valid RON, area elsewhere in card -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/garsoniera-50mp-CID456.html">
+      <h6>Garsoniera, 50mp, zona centrala</h6>
+    </a>
+    <p data-testid="ad-price">250000 lei</p>
+  </div>
+
+  <!-- Listing 3: missing area - should be invalid -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/apartament-fara-suprafata-CID789.html">
+      <h6>Apartament frumos, pret negociabil</h6>
+    </a>
+    <p data-testid="ad-price">100 000 EUR</p>
+  </div>
+
+  <!-- Listing 4: missing price - should be invalid -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/apartament-fara-pret-CID101.html">
+      <h6>Apartament 3 camere, 90 m², Sector 3</h6>
+    </a>
+  </div>
+
+  <!-- Listing 5: valid EUR, area uses m² -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/penthouse-120m2-CID202.html">
+      <h6>Penthouse 120 m², vedere panoramica</h6>
+    </a>
+    <p data-testid="ad-price">240 000 EUR</p>
+  </div>
+
+</div>
+</body>
+</html>
