@@ -181,6 +181,94 @@ class OlxScraperTest {
     }
 
     // -------------------------------------------------------------------------
+    // parsePage – city mismatch filtering
+    // -------------------------------------------------------------------------
+
+    @Test
+    void parsePage_mismatchFixture_cityMismatchedListingExcluded() throws IOException {
+        Document doc = loadFixture("fixtures/listing_page_with_mismatch.html");
+        List<ApartmentListing> listings = scraper.parsePage(doc, "bucuresti");
+
+        // 3 cards total: 1 matching (CID001), 1 mismatched Cluj-Napoca (CID002), 1 no-location (CID003)
+        assertEquals(2, listings.size());
+        assertTrue(listings.stream().noneMatch(l -> l.getUrl().contains("CID002")));
+    }
+
+    @Test
+    void parsePage_mismatchFixture_matchingCityIncluded() throws IOException {
+        Document doc = loadFixture("fixtures/listing_page_with_mismatch.html");
+        List<ApartmentListing> listings = scraper.parsePage(doc, "bucuresti");
+
+        assertTrue(listings.stream().anyMatch(l -> l.getUrl().contains("CID001")));
+    }
+
+    @Test
+    void parsePage_mismatchFixture_noLocationAlwaysIncluded() throws IOException {
+        Document doc = loadFixture("fixtures/listing_page_with_mismatch.html");
+        List<ApartmentListing> listings = scraper.parsePage(doc, "bucuresti");
+
+        assertTrue(listings.stream().anyMatch(l -> l.getUrl().contains("CID003")));
+    }
+
+    // -------------------------------------------------------------------------
+    // isLocationMatchingCity – word-boundary and diacritic tests (via parsePage)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void parsePage_shortSlugDoesNotMatchLongerLocationWord() {
+        // Slug "brad" must NOT match a card whose location says "Brădești" (bradesti)
+        String html = "<html><body>"
+                + "<div data-cy='l-card'>"
+                + "<a href='https://www.olx.ro/oferta/ap-CID999.html'><h6>Ap 50 mp, zona</h6></a>"
+                + "<p data-testid='ad-price'>50 000 EUR</p>"
+                + "<p data-testid='location-date'>Brădești - 1 oră</p>"
+                + "</div></body></html>";
+        Document doc = Jsoup.parse(html, "https://www.olx.ro/");
+        List<ApartmentListing> listings = scraper.parsePage(doc, "brad");
+        assertTrue(listings.isEmpty(), "Short slug 'brad' should not match 'Brădești'");
+    }
+
+    @Test
+    void parsePage_slugWithDiacriticsMatchesNormalisedLocation() {
+        // Slug "targu-mures" must match location "Târgu Mureș"
+        String html = "<html><body>"
+                + "<div data-cy='l-card'>"
+                + "<a href='https://www.olx.ro/oferta/ap-tgm-CID888.html'><h6>Ap 60 mp, central</h6></a>"
+                + "<p data-testid='ad-price'>80 000 EUR</p>"
+                + "<p data-testid='location-date'>Târgu Mureș - 3 ore</p>"
+                + "</div></body></html>";
+        Document doc = Jsoup.parse(html, "https://www.olx.ro/");
+        List<ApartmentListing> listings = scraper.parsePage(doc, "targu-mures");
+        assertEquals(1, listings.size(), "Slug 'targu-mures' should match 'Târgu Mureș'");
+    }
+
+    // -------------------------------------------------------------------------
+    // scrape – duplicate URL deduplication
+    // -------------------------------------------------------------------------
+
+    @Test
+    void scrape_deduplicatesDuplicateUrlsAcrossPages() throws IOException {
+        String html;
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream("fixtures/listing_page.html")) {
+            assertNotNull(is, "Fixture not found");
+            html = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        Document fixture = Jsoup.parse(html, "https://www.olx.ro/");
+
+        // Override fetchDocument so both page 1 and page 2 return the same fixture.
+        OlxScraper dedupScraper = new OlxScraper(null, 0) {
+            @Override
+            Document fetchDocument(String url) {
+                return fixture;
+            }
+        };
+
+        List<ApartmentListing> result = dedupScraper.scrape("bucuresti", 2);
+        // fixture has 5 unique URLs; page 2 returns the same 5 – all duplicates should be dropped
+        assertEquals(5, result.size());
+    }
+
+    // -------------------------------------------------------------------------
     // Helper
     // -------------------------------------------------------------------------
 

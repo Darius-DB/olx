@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head><meta charset="UTF-8"><title>OLX.ro mismatch fixture</title></head>
+<body>
+<div id="listing-grid">
+
+  <!-- Listing 1: valid, location matches "bucuresti" -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/ap-buc-CID001.html">
+      <h6>Apartament 2 camere, 75 mp, Sector 1</h6>
+    </a>
+    <p data-testid="ad-price">75 000 EUR</p>
+    <p data-testid="location-date">Sector 1, București - 1 oră</p>
+  </div>
+
+  <!-- Listing 2: valid but promoted from Cluj-Napoca - should be filtered out -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/ap-cluj-CID002.html">
+      <h6>Apartament 3 camere, 90 mp, central</h6>
+    </a>
+    <p data-testid="ad-price">120 000 EUR</p>
+    <p data-testid="location-date">Cluj-Napoca - 2 ore</p>
+  </div>
+
+  <!-- Listing 3: valid, no location element - should be included regardless -->
+  <div data-cy="l-card">
+    <a href="https://www.olx.ro/oferta/ap-no-loc-CID003.html">
+      <h6>Garsoniera 40 mp, zona nord</h6>
+    </a>
+    <p data-testid="ad-price">50 000 EUR</p>
+  </div>
+
+</div>
+</body>
+</html>

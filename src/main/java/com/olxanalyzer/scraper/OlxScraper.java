@@ -7,8 +7,12 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -51,6 +55,9 @@ public class OlxScraper {
     /** Selector for the price element. */
     private static final String SEL_PRICE = "[data-testid='ad-price'], .price";
 
+    /** Selector for the location/date element that shows the city of the listing. */
+    private static final String SEL_LOCATION = "[data-testid='location-date'], [data-testid='location']";
+
     // ---- regex patterns --------------------------------------------------
 
     /** Matches a numeric value (with optional thousand-separator) inside a string. */
@@ -90,6 +97,7 @@ public class OlxScraper {
      */
     public List<ApartmentListing> scrape(String citySlug, int maxPages) {
         List<ApartmentListing> all = new ArrayList<>();
+        Set<String> seenUrls = new HashSet<>();
 
         for (int page = 1; page <= maxPages; page++) {
             String url = String.format(BASE_URL, citySlug, page);
@@ -104,16 +112,28 @@ public class OlxScraper {
                 break;
             }
 
-            LOG.info(String.format("[%s] page %d/%d ... %d listing(s) found (%d valid)",
-                    citySlug, page, maxPages, pageListings.size(),
-                    pageListings.stream().filter(ApartmentListing::isValid).count()));
-
             if (pageListings.isEmpty()) {
                 LOG.info(String.format("[%s] No listings on page %d, stopping early.", citySlug, page));
                 break;
             }
 
-            all.addAll(pageListings);
+            int added = 0;
+            int duplicates = 0;
+            for (ApartmentListing listing : pageListings) {
+                String listingUrl = listing.getUrl();
+                if (listingUrl != null && !listingUrl.isBlank() && !seenUrls.add(listingUrl)) {
+                    LOG.fine(String.format("[%s] Duplicate URL skipped: %s", citySlug, listingUrl));
+                    duplicates++;
+                } else {
+                    all.add(listing);
+                    added++;
+                }
+            }
+
+            LOG.info(String.format("[%s] page %d/%d ... %d listing(s) added, %d duplicate(s) skipped (%d valid)",
+                    citySlug, page, maxPages, added, duplicates,
+                    pageListings.stream().filter(ApartmentListing::isValid).count()));
+
             throttle();
         }
 
@@ -135,6 +155,9 @@ public class OlxScraper {
         for (Element card : cards) {
             try {
                 ApartmentListing listing = parseCard(card, citySlug);
+                if (listing == null) {
+                    continue; // city mismatch – already logged in parseCard
+                }
                 if (!listing.isValid()) {
                     LOG.fine(String.format("Skipped invalid listing: %s", listing));
                 }
@@ -187,6 +210,18 @@ public class OlxScraper {
 
         if (area == null) {
             LOG.fine(String.format("No area found for listing '%s' [%s]", title, url));
+        }
+
+        // City mismatch check: if a location element is present and the location does not
+        // mention the expected city, the listing was promoted from another city – skip it.
+        Element locationEl = card.selectFirst(SEL_LOCATION);
+        if (locationEl != null) {
+            String locationText = locationEl.text();
+            if (!locationText.isBlank() && !isLocationMatchingCity(locationText, citySlug)) {
+                LOG.fine(String.format("[%s] City mismatch: location '%s', skipping listing: %s",
+                        citySlug, locationText, url));
+                return null;
+            }
         }
 
         return ApartmentListing.builder()
@@ -261,6 +296,35 @@ public class OlxScraper {
             case "ron", "lei" -> "RON";
             default -> trimmed.toUpperCase();
         };
+    }
+
+    /**
+     * Returns {@code true} when the human-readable {@code locationText} from an OLX listing card
+     * can be attributed to the given {@code citySlug}.  Both the location text and the slug are
+     * normalised (diacritics stripped, lower-cased, hyphens replaced with spaces) before
+     * comparison so that e.g. "Târgu Mureș" matches the slug "targu-mures".
+     * A whole-word boundary check prevents short slugs (e.g. "brad") from matching longer
+     * location names that merely contain them as a substring (e.g. "Brădet").
+     */
+    private boolean isLocationMatchingCity(String locationText, String citySlug) {
+        String normalizedLocation = removeDiacritics(locationText.toLowerCase(Locale.ROOT)).replace("-", " ");
+        String normalizedSlug    = removeDiacritics(citySlug.toLowerCase(Locale.ROOT)).replace("-", " ");
+
+        int idx = normalizedLocation.indexOf(normalizedSlug);
+        if (idx < 0) return false;
+
+        // Verify word boundaries so that e.g. "brad" does not match "bradesti"
+        boolean startOk = (idx == 0)
+                || !Character.isLetterOrDigit(normalizedLocation.charAt(idx - 1));
+        boolean endOk   = (idx + normalizedSlug.length() >= normalizedLocation.length())
+                || !Character.isLetterOrDigit(normalizedLocation.charAt(idx + normalizedSlug.length()));
+        return startOk && endOk;
+    }
+
+    /** Strips Unicode combining diacritical marks (e.g. ș→s, ț→t, ă→a, â→a, î→i). */
+    private static String removeDiacritics(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
+                         .replaceAll("\\p{Mn}", "");
     }
 
     private void throttle() {
